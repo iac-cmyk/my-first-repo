@@ -286,3 +286,182 @@ main, feature:  A → B → C → D → E
 3. **`/init` でCLAUDE.md作成** ← プロジェクトルールをClaude Codeに記憶させる
 4. **マージコンフリクト体験** ← Fast-forwardでない本格的な merge
 5. **他のMCP連携** ← Slack、Notion等
+
+---
+
+## 2026-05-09 〜 10: セッション4 — アカウント分離 + Public化 + GitHub Pages公開
+
+> ⚠️ 注: 当初は「自己紹介ページを公開する」シンプルなゴールだったが、 
+> 「ガンガンに守る」方針で深く踏み込んだ結果、内容の濃い回となった。
+
+### 達成した実用スキル（一覧）
+
+```
+[ メイン ]
+1. 学習用メアド作成              ✅
+2. 新GitHubアカウント作成         ✅
+3. PAT発行 + MCP切替             ✅
+4. ローカルgit設定切替           ✅
+5. 学習垢側に新リポジトリ作成    ✅
+6. push                          ✅
+7. .gitignore 設定                ✅
+8. Public化 + GitHub Pages 有効化 ✅
+9. 公開URL確認                    ✅
+
+[ おまけ ]
+   過去履歴クリーンアップ        ✅
+   セキュリティ点検               ✅
+   noreply メアド完全匿名化       ✅
+```
+
+### やったこと
+
+#### 1. アカウント分離の決断
+- 本垢（`ia6511209`）でPublic化＋公開すると、本垢の存在やメールが世界に晒される
+- → 学習・実験用は完全に別アカウントで運用する方針に
+- 学習用Gmailを新規作成 → GitHubで `iac-cmyk` アカウントを作成
+
+#### 2. PAT再発行 + MCP切替
+- 本垢のPATは MCP から削除
+- 学習垢で新規 PAT を発行（`repo` + `workflow` + `read:org`）
+- PowerShell で MCP を再登録（シングルクォート必須はセッション2で学んだ通り）:
+  ```powershell
+  claude mcp add -s user --transport http github https://api.githubcopilot.com/mcp -H 'Authorization: Bearer NEW_PAT'
+  ```
+
+#### 3. ローカル `git config` を学習垢用に切替（`--local`）
+- グローバル設定（`--global`）を変えると他のプロジェクトにも影響
+- `--local` を使うとそのリポジトリだけに設定を適用できる：
+  ```powershell
+  git config --local user.name "iac-cmyk"
+  git config --local user.email "学習垢のnoreplyメアド"
+  ```
+
+#### 4. リポジトリ作り直しと push
+- 学習垢側に `my-first-repo` を新規作成（MCP経由）
+- ローカルから push
+
+#### 5. `.gitignore` を作成
+- セッション3で困っていた `.claude/settings.local.json` を含めて除外
+- 内容例:
+  ```
+  .claude/
+  *.log
+  ```
+
+#### 6. Public化 + GitHub Pages 有効化
+- リポジトリ Settings → Visibility → Public
+- Settings → Pages → Source: `main` ブランチ → Save
+- 数分後にURLが発行される（`https://iac-cmyk.github.io/my-first-repo/`）
+
+#### 7. 過去履歴クリーンアップ ★ 今日のハイライト
+- Public化後に「過去のコミット履歴に本垢の `user.email` が残っている」と判明
+- 解決アプローチ:
+  - **Phase 1**: ローカルファイル状態確認（`Select-String` で個人情報スキャン）→ クリーン確認
+  - **Phase 2**: GitHub上のリポジトリを Settings → Danger Zone → Delete
+  - **Phase 3**: GitHub上で同名リポジトリを新規作成
+  - **Phase 4**: ローカルの `.git` フォルダを削除
+  - **Phase 5**: `git init` でリポジトリ初期化
+  - **Phase 6**: `git config --local` で学習垢情報を再設定
+  - **Phase 7**: 全ファイルを 1コミットにまとめて push
+- 結果: 過去コミット8個分の本垢情報が完全に消滅したクリーンな履歴に
+
+#### 8. noreply メアドで完全匿名化
+- GitHub Settings → Emails → 「Keep my email addresses private」
+- `数字+ユーザー名@users.noreply.github.com` 形式が発行される
+- これを `git config user.email` に設定すれば、コミットしてもメアドが世に出ない
+
+### 解決したトラブル
+
+#### トラブル1: `t-repo` という謎ファイル
+- ターミナル操作中に `t-repo` という意味不明なファイルが作成された
+- 正体: `mv` か何かのコマンド誤入力で生成された残骸
+- 削除して解決
+
+#### トラブル2: PowerShell構文エラー
+- Claude Codeを起動し忘れた状態でClaude Code向けコマンドを叩いた
+- → そのコマンドが PowerShell として解釈されてエラー
+- 解決: `claude` で起動してから入力
+
+#### トラブル3: Credential Manager の旧情報残り
+- Windows 資格情報マネージャーに本垢の認証情報がキャッシュされていた
+- → 学習垢で push しようとしても本垢の認証が使われてしまう
+- 解決: 資格情報マネージャーから古いエントリを削除
+
+### 学んだ基本操作
+
+#### Git設定スコープ
+- `git config --global ...` → そのPC全体のデフォルト
+- `git config --local ...` → そのリポジトリだけ（`.git/config` に保存）
+- `git config --list --show-origin` → どの設定がどこから来てるか確認
+
+#### 履歴の完全リセット手順
+```powershell
+Remove-Item .git -Recurse -Force    # 履歴ごと削除
+git init                            # 新規リポジトリとして初期化
+git config --local user.name "..."
+git config --local user.email "..."
+git add .
+git commit -m "Initial commit"
+git remote add origin <URL>
+git branch -M main
+git push -u origin main
+```
+
+#### 個人情報の最終スキャン
+```powershell
+Get-ChildItem -Recurse -File | Select-String -Pattern "本垢ID","ユーザー名" -SimpleMatch
+```
+- 何も出なければクリーン
+- `.git/` 内のヒットは Phase 4 の削除で消えるので無視可
+
+### 学んだ概念
+
+#### アカウント分離運用
+- 「実名と紐づく本垢」と「学習・実験用の学習垢」を分離
+- 本垢でうっかり機密情報を公開する事故を防ぐ
+- 学習垢でやらかしても被害が限定的
+
+#### Gitの履歴の強さと怖さ
+- 一度コミットされた情報は、後から `.gitignore` で除外しても**履歴に残る**
+- リモートに push してしまうと、その時点で世界に公開される
+- → **「Public化前の点検」が鉄則**。「とりあえず公開」は危険
+
+#### noreply メアドの仕組み
+- GitHub標準の匿名化機能
+- `git commit` のメタデータにメアドが残っても本物のメアドが漏れない
+- 公開リポジトリでは事実上の必須機能
+
+#### Claude Codeの自律性（再確認）
+- 「過去履歴に旧情報残ってるけどどうする？」と自分で気付き、提案してくる
+- 単なる実行ツールではなく、状況を判断する力がある
+
+### 公開リポジトリ情報
+- リモート: `https://github.com/iac-cmyk/my-first-repo` (Public)
+- GitHub Pages 公開URL: `https://iac-cmyk.github.io/my-first-repo/` （※実際のURLは GitHub の Settings → Pages で確認）
+- 学習垢: `iac-cmyk`
+- 本垢: `ia6511209`（学習用途では使わない）
+
+### 今日の総合的な学び
+
+- **「ガンガンに守る」方針の強さ**: 多くの初心者は「とりあえず公開」で進めて後悔するが、点検→公開を貫けた
+- **理解と実行は別**: 全部理解はしてないけど、最後まで完遂できた。理解は後から追いつく
+- **トラブルシューティングの底力**: 過去履歴の汚染という上級者向けの問題に対処できた
+- **「難しすぎた」は健全な感覚**: 情報量が多すぎただけで、能力の問題ではない
+
+### 次回（セッション5以降）のおすすめ順序
+
+1. **このログを progress.md に追記して push** ← 公開後の更新フロー体験（**セッション5の最初**）
+2. **README.md を作成** ← リポジトリトップに表示される説明文
+3. **過去状態への復元**（reset / revert）← ミスから戻る方法
+4. **`/init` で CLAUDE.md 作成** ← プロジェクトルールをClaude Codeに記憶させる
+5. **マージコンフリクト体験** ← Fast-forwardでない本格的な merge
+6. **他のMCP連携** ← Slack、Notion、Google Drive等
+
+### 現在のリポジトリ状態（セッション4終了時点）
+- ローカル: `D:\dev\my-first-repo`
+- リモート: `https://github.com/iac-cmyk/my-first-repo` (**Public**)
+- ブランチ: `main` のみ
+- ファイル: `index.html`, `progress.md`, `.gitignore`
+- コミット数: 1（履歴リセット後の Initial commit）
+- GitHub Pages: 公開中
